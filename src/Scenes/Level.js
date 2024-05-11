@@ -14,8 +14,6 @@ class Level extends Phaser.Scene {
         this.score = 0;
         this.wave = 0;
 
-        this.my.sprites.enemies = {enemyStrong: [], enemyFast: []};
-        this.my.sprites.activeEnemies = {enemyStrong: [], enemyFast: []};
         this.waveConfig = [ // config for each wave; provides x,y coordinates for each ship
             {enemyStrong: [
                 [900, 360],
@@ -29,7 +27,6 @@ class Level extends Phaser.Scene {
             ]},
             {enemyStrong: 6, enemyFast: 4}
         ];
-        this.maxEnemies = {enemyStrong: 10, enemyFast: 8};
 
         this.playerSpeed = 10;
         this.bulletSpeed = 12;
@@ -53,19 +50,47 @@ class Level extends Phaser.Scene {
         my.sprites.player.scale = 3;
         my.sprites.player.angle = 90;
 
+        // create enemy groups
+        my.sprites.enemyStrongGroup = this.add.group({
+            defaultKey: "ships",
+            defaultFrame: "blue_medium.png",
+            maxSize: 10,
+            createMultipleCallback: function(enemies) {
+                for (let enemy of enemies) {
+                    enemy.scale = 3;
+                    enemy.angle = -90;
+                    enemy.hp = 2;
+                }
+            }
+        })
+        my.sprites.enemyFastGroup = this.add.group({
+            defaultKey: "ships",
+            defaultFrame: "grayC_small.png",
+            maxSize: 10,
+            createMultipleCallback: function(enemies) {
+                for (let enemy of enemies) {
+                    enemy.scale = 3;
+                    enemy.angle = -90;
+                    enemy.hp = 1;
+                }
+            }
+        })
+
         // create enemies
-        for (let i=0; i<this.maxEnemies.enemyStrong; i++) {
-            my.sprites.enemies.enemyStrong.push(this.add.sprite(0, -100, "ships", "blue_medium.png"))
-            my.sprites.enemies.enemyStrong[i].scale = 3;
-            my.sprites.enemies.enemyStrong[i].angle = -90;
-            my.sprites.enemies.enemyStrong[i].hp = 2;
-        }
-        for (let i=0; i<this.maxEnemies.enemyFast; i++) {
-            my.sprites.enemies.enemyFast.push(this.add.sprite(0, -100, "ships", "grayC_small.png"))
-            my.sprites.enemies.enemyFast[i].scale = 3;
-            my.sprites.enemies.enemyFast[i].angle = -90;
-            my.sprites.enemies.enemyFast[i].hp = 1;
-        }
+        my.sprites.enemyStrongGroup.createMultiple({
+            active: false,
+            visible: false,
+            key: my.sprites.enemyStrongGroup.defaultKey,
+            frame: my.sprites.enemyStrongGroup.defaultFrame,
+            repeat: my.sprites.enemyStrongGroup.maxSize-1
+        })
+        my.sprites.enemyFastGroup.createMultiple({
+            active: false,
+            visible: false,
+            key: my.sprites.enemyFastGroup.defaultKey,
+            frame: my.sprites.enemyFastGroup.defaultFrame,
+            repeat: my.sprites.enemyFastGroup.maxSize-1
+        })
 
         // create bullets for player & enemies
         for (let i=0; i<this.maxBullets; i++) {
@@ -78,7 +103,7 @@ class Level extends Phaser.Scene {
             my.sprites.enemyBullets[i].scale = 3;
             my.sprites.enemyBullets[i].angle = -90;
             my.sprites.enemyBullets[i].visible = false;
-        }
+        } // TODO: convert bullets from arrays to Phaser groups
 
         // create animations
         this.anims.create({
@@ -113,7 +138,7 @@ class Level extends Phaser.Scene {
         if (this.bulletCooldownCounter > 0) this.bulletCooldownCounter--;
 
         // begin next wave if there are no active enemies
-        if (my.sprites.activeEnemies.enemyStrong.length + my.sprites.activeEnemies.enemyFast.length == 0) {
+        if (my.sprites.enemyStrongGroup.countActive() + my.sprites.enemyFastGroup.countActive() == 0) {
             this.initWave(this.wave + 1);
         }
 
@@ -150,14 +175,16 @@ class Level extends Phaser.Scene {
             if (bullet.visible) {
                 bullet.x += this.bulletSpeed;
 
-                for (let enemy of my.sprites.activeEnemies.enemyStrong) {
+                for (let enemy of my.sprites.enemyStrongGroup.getMatching("active", true)) {
                     if (this.collides(bullet, enemy)) {
                         enemy.hp--;
+                        this.score += 25;
+                        this.updateText();
 
                         if (enemy.hp <= 0) {
-                            const i = my.sprites.activeEnemies.enemyStrong.indexOf(enemy);
-                            my.sprites.activeEnemies.enemyStrong
-                            
+                            enemy.active = false;
+                            enemy.visible = false;
+                            enemy.hp = 2;
                         }
                     }
                 }
@@ -185,10 +212,10 @@ class Level extends Phaser.Scene {
         // TODO
     }
 
-    // center-radius AABB collision check, taken from Jim Whitehead's function in https://github.com/JimWhiteheadUCSC/BulletTime
+    // center-radius AABB collision check, modified from Jim Whitehead's function in https://github.com/JimWhiteheadUCSC/BulletTime
     collides(a, b) {
-        if (Math.abs(a.x - b.x) > (a.displayWidth/2 + b.displayWidth/2)) return false;
-        if (Math.abs(a.y - b.y) > (a.displayHeight/2 + b.displayHeight/2)) return false;
+        if (Math.abs(a.x - b.x) > (a.displayWidth/4 + b.displayWidth/4)) return false;
+        if (Math.abs(a.y - b.y) > (a.displayHeight/4 + b.displayHeight/4)) return false;
         return true;
     }
 
@@ -206,21 +233,24 @@ class Level extends Phaser.Scene {
 
         // activate enemies and arrange them as specified in the wave config
         for (let i=0; i<fig.enemyStrong.length; i++) {
-            spr.activeEnemies.enemyStrong.push(spr.enemies.enemyStrong[i]);
-            spr.activeEnemies.enemyStrong[i].x = fig.enemyStrong[i][0];
-            spr.activeEnemies.enemyStrong[i].y = fig.enemyStrong[i][1];
+            let enemy = spr.enemyStrongGroup.getFirstDead();
+            if (enemy == null) break;
+
+            enemy.active = true;
+            enemy.visible = true;
+            enemy.x = fig.enemyStrong[i][0];
+            enemy.y = fig.enemyStrong[i][1];
         }
         for (let i=0; i<fig.enemyFast.length; i++) {
-            spr.activeEnemies.enemyFast.push(spr.enemies.enemyFast[i]);
-            spr.activeEnemies.enemyFast[i].x = fig.enemyFast[i][0];
-            spr.activeEnemies.enemyFast[i].y = fig.enemyFast[i][1];
+            let enemy = spr.enemyFastGroup.getFirstDead();
+            if (enemy == null) break;
+
+            enemy.active = true;
+            enemy.visible = true;
+            enemy.x = fig.enemyFast[i][0];
+            enemy.y = fig.enemyFast[i][1];
         }
 
         this.my.text.wave.setText("wave: " + wave);
-    }
-
-    // returns array with the value at index removed
-    remove(array, index) {
-        return array.slice(0, index).concat(array.slice(index + 1));
     }
 }

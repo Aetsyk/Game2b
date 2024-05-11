@@ -92,18 +92,45 @@ class Level extends Phaser.Scene {
             repeat: my.sprites.enemyFastGroup.maxSize-1
         })
 
-        // create bullets for player & enemies
-        for (let i=0; i<this.maxBullets; i++) {
-            my.sprites.playerBullets.push(this.add.sprite(-100, -100, "tiles", "bullet.png"));
-            my.sprites.playerBullets[i].scale = 3;
-            my.sprites.playerBullets[i].angle = 90;
-            my.sprites.playerBullets[i].visible = false;
+        // create bullet groups for player & enemies
+        my.sprites.playerBulletGroup = this.add.group({
+            defaultKey: "tiles",
+            defaultFrame: "bullet.png",
+            maxSize: 10,
+            createMultipleCallback: function(bullets) {
+                for (let bullet of bullets) {
+                    bullet.scale = 3;
+                    bullet.angle = 90;
+                }
+            }
+        })
+        my.sprites.enemyBulletGroup = this.add.group({
+            defaultKey: "tiles",
+            defaultFrame: "bullet.png",
+            maxSize: 10,
+            createMultipleCallback: function(bullets) {
+                for (let bullet of bullets) {
+                    bullet.scale = 3;
+                    bullet.angle = -90;
+                }
+            }
+        })
 
-            my.sprites.enemyBullets.push(this.add.sprite(-100, -100, "tiles", "bullet.png"));
-            my.sprites.enemyBullets[i].scale = 3;
-            my.sprites.enemyBullets[i].angle = -90;
-            my.sprites.enemyBullets[i].visible = false;
-        } // TODO: convert bullets from arrays to Phaser groups
+        // create bullets
+        my.sprites.playerBulletGroup.createMultiple({
+            active: false,
+            visible: false,
+            key: my.sprites.playerBulletGroup.defaultKey,
+            frame: my.sprites.playerBulletGroup.defaultFrame,
+            repeat: my.sprites.playerBulletGroup.maxSize-1
+        })
+        my.sprites.enemyBulletGroup.createMultiple({
+            active: false,
+            visible: false,
+            key: my.sprites.enemyBulletGroup.defaultKey,
+            frame: my.sprites.enemyBulletGroup.defaultFrame,
+            repeat: my.sprites.enemyBulletGroup.maxSize-1
+        })
 
         // create animations
         this.anims.create({
@@ -155,14 +182,14 @@ class Level extends Phaser.Scene {
         // fire bullet
         if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
             if (this.bulletCooldownCounter <= 0) {
-                for(let bullet of my.sprites.playerBullets) {
-                    if (!bullet.visible) {
-                        bullet.x = my.sprites.player.x + (bullet.displayWidth/2);
-                        bullet.y = my.sprites.player.y;
-                        bullet.visible = true;
-                        this.bulletCooldownCounter = this.bulletCooldown;
-                        break;
-                    }
+                let bullet = my.sprites.playerBulletGroup.getFirstDead();
+
+                if (bullet != null) { // derived from https://github.com/JimWhiteheadUCSC/BulletTime
+                    bullet.x = my.sprites.player.x + (bullet.displayWidth/2);
+                    bullet.y = my.sprites.player.y;
+                    bullet.active = true;
+                    bullet.visible = true;
+                    this.bulletCooldownCounter = this.bulletCooldown;
                 }
             }
         }
@@ -171,39 +198,36 @@ class Level extends Phaser.Scene {
         // TODO
 
         // player bullet movement & collision
-        for (let bullet of my.sprites.playerBullets) {
-            if (bullet.visible) {
-                bullet.x += this.bulletSpeed;
-
-                for (let enemy of my.sprites.enemyStrongGroup.getMatching("active", true)) {
-                    if (this.collides(bullet, enemy)) {
-                        enemy.hp--;
-                        this.score += 25;
-                        this.updateText();
-
-                        if (enemy.hp <= 0) {
-                            enemy.active = false;
-                            enemy.visible = false;
-                            enemy.hp = 2;
-                        }
-                    }
+        for (let bullet of my.sprites.playerBulletGroup.getMatching("active", true)) {
+            bullet.x += this.bulletSpeed;
+            // against strong enemies
+            for (let enemy of my.sprites.enemyStrongGroup.getMatching("active", true)) {
+                if (this.collides(bullet, enemy)) {
+                    bullet.active = false;
+                    bullet.visible = false;
+                    this.hitEnemy(enemy, 2);
                 }
             }
-
-            // deactivate offscreen bullets for reuse
-            if (bullet.x > (game.config.width + (bullet.displayWidth/2))) {
-                bullet.visible = false;
+            // against fast enemies
+            for (let enemy of my.sprites.enemyFastGroup.getMatching("active", true)) {
+                if (this.collides(bullet, enemy)) {
+                    bullet.active = false;
+                    bullet.visible = false;
+                    this.hitEnemy(enemy, 1);
+                }
             }
         }
 
-        // enemy bullet movement & collision
-        for (let bullet of my.sprites.enemyBullets) {
-            if (bullet.visible) {
-                bullet.x -= this.bulletSpeed;
+        // remove bullets if offscreen
+        for (let bullet of my.sprites.playerBulletGroup.getChildren()) {
+            if (bullet.x > (game.config.width + (bullet.displayWidth/2))) {
+                bullet.active = false;
+                bullet.visible = false;
             }
-
-            // deactivate offscreen bullets for reuse
+        }
+        for (let bullet of my.sprites.enemyBulletGroup.getChildren()) {
             if (bullet.x < (bullet.displayWidth/2)) {
+                bullet.active = false;
                 bullet.visible = false;
             }
         }
@@ -252,5 +276,19 @@ class Level extends Phaser.Scene {
         }
 
         this.my.text.wave.setText("wave: " + wave);
+    }
+
+    hitEnemy(enemy, maxHP) {
+        enemy.hp--;
+        this.score += 25;
+        this.updateText();
+
+        if (enemy.hp <= 0) {
+            enemy.play("explosion");
+            enemy.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                enemy.active = false;
+                enemy.hp = maxHP;
+            });
+        }
     }
 }

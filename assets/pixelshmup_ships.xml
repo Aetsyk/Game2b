@@ -1,0 +1,26 @@
+<TextureAtlas imagePath="pixelshmup_ships.png">
+    <SubTexture name="blue_large.png" x="0" y="0" width="32" height="32"/>
+    <SubTexture name="red_large.png" x="32" y="0" width="32" height="32"/>
+    <SubTexture name="green_large.png" x="64" y="0" width="32" height="32"/>
+    <SubTexture name="orange_large.png" x="96" y="0" width="32" height="32"/>
+    <SubTexture name="blue_medium.png" x="0" y="32" width="32" height="32"/>
+    <SubTexture name="red_medium.png" x="32" y="32" width="32" height="32"/>
+    <SubTexture name="green_medium.png" x="64" y="32" width="32" height="32"/>
+    <SubTexture name="orange_medium.png" x="96" y="32" width="32" height="32"/>
+    <SubTexture name="blue_small.png" x="0" y="64" width="32" height="32"/>
+    <SubTexture name="red_small.png" x="32" y="64" width="32" height="32"/>
+    <SubTexture name="green_small.png" x="64" y="64" width="32" height="32"/>
+    <SubTexture name="orange_small.png" x="96" y="64" width="32" height="32"/>
+    <SubTexture name="grayA_large.png" x="0" y="96" width="32" height="32"/>
+    <SubTexture name="grayB_large.png" x="32" y="96" width="32" height="32"/>
+    <SubTexture name="grayC_large.png" x="64" y="96" width="32" height="32"/>
+    <SubTexture name="grayD_large.png" x="96" y="96" width="32" height="32"/>
+    <SubTexture name="grayA_medium.png" x="0" y="128" width="32" height="32"/>
+    <SubTexture name="grayB_medium.png" x="32" y="128" width="32" height="32"/>
+    <SubTexture name="grayC_medium.png" x="64" y="128" width="32" height="32"/>
+    <SubTexture name="grayD_medium.png" x="96" y="128" width="32" height="32"/>
+    <SubTexture name="grayA_small.png" x="0" y="160" width="32" height="32"/>
+    <SubTexture name="grayB_small.png" x="32" y="160" width="32" height="32"/>
+    <SubTexture name="grayC_small.png" x="64" y="160" width="32" height="32"/>
+    <SubTexture name="grayD_small.png" x="96" y="160" width="32" height="32"/>
+</TextureAtlas>

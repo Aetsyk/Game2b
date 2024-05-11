@@ -1,0 +1,9 @@
+<TextureAtlas imagePath="pixelshmup_tiles.png">
+    <SubTexture name="bullet.png" x="0" y="16" width="16" height="16"/>
+    <SubTexture name="health.png" x="0" y="32" width="16" height="16"/>
+    <SubTexture name="explosion1.png" x="64" y="0" width="16" height="16"/>
+    <SubTexture name="explosion2.png" x="80" y="0" width="16" height="16"/>
+    <SubTexture name="explosion3.png" x="112" y="0" width="16" height="16"/>
+    <SubTexture name="dust.png" x="128" y="0" width="16" height="16"/>
+    <SubTexture name="sky.png" x="96" y="48" width="16" height="16"/>
+</TextureAtlas>

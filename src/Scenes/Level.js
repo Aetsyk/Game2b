@@ -43,6 +43,7 @@ class Level extends Phaser.Scene {
 
         this.playerSpeed = 10;
         this.bulletSpeed = 12;
+        this.enemyVelocity = {strong: 5, fast: 12};
 
         this.pauseCounter = -1;
     }
@@ -213,6 +214,7 @@ class Level extends Phaser.Scene {
                     bullet.x = my.sprites.player.x + (bullet.displayWidth/2);
                     bullet.y = my.sprites.player.y;
                     bullet.active = true;
+                    bullet.setTexture(my.sprites.playerBulletGroup.defaultKey, my.sprites.playerBulletGroup.defaultFrame);
                     bullet.visible = true;
                     this.playerCooldownCounter = this.playerCooldown;
                 }
@@ -220,8 +222,20 @@ class Level extends Phaser.Scene {
         }
 
         // enemy movement
+        if (this.pauseCounter <= 0) my.sprites.enemyStrongGroup.incY(this.enemyVelocity.strong);
+        if (this.pauseCounter <= 0) my.sprites.enemyFastGroup.incY(this.enemyVelocity.fast);
+
         for (let enemy of my.sprites.enemyStrongGroup.getMatching("active", true)) {
-            // TODO: movement
+            if (enemy.y <= 96 || enemy.y >= this.game.config.height-96) {
+                this.enemyVelocity.strong *= -1;
+                break;
+            }
+        }
+        for (let enemy of my.sprites.enemyFastGroup.getMatching("active", true)) {
+            if (enemy.y <= 96 || enemy.y >= this.game.config.height-96) {
+                this.enemyVelocity.fast *= -1;
+                break;
+            }
         }
 
         // enemy attacks
@@ -390,10 +404,14 @@ class Level extends Phaser.Scene {
 
         this.shotCooldownCounter.strong = fig.shotCooldown.strong;
         this.shotCooldownCounter.fast = fig.shotCooldown.fast;
+        this.enemyVelocity.strong = 5;
+        this.enemyVelocity.fast = 12;
         this.my.text.wave.setText("wave: " + wave);
     }
 
     hitEnemy(enemy, maxHP) {
+        let spr = this.my.sprites;
+
         enemy.hp--;
         this.score += 25;
         this.updateText();
@@ -405,12 +423,19 @@ class Level extends Phaser.Scene {
                 enemy.hp = maxHP;
 
                 // if there are no active enemies, move to next wave
-                if (this.my.sprites.enemyStrongGroup.countActive() + this.my.sprites.enemyFastGroup.countActive() == 0) {
+                if (spr.enemyStrongGroup.countActive() + spr.enemyFastGroup.countActive() == 0) {
                     this.wave++;
 
                     if (this.wave > this.waveConfig.length) { // if no more waves, win game
                         this.winGame();
                     } else {
+                        // destroy bullets
+                        for (let bullet of spr.playerBulletGroup.getMatching("active", true)) {
+                            bullet.play("shortExplosion");
+                            bullet.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                                bullet.active = false;
+                            });
+                        }
                         this.initWave(this.wave);
                     }
                 }

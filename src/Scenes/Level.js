@@ -4,11 +4,8 @@ class Level extends Phaser.Scene {
 
         this.my = {sprites: {}, text: {}};
 
-        this.my.sprites.playerBullets = [];
-        this.my.sprites.enemyBullets = [];
-        this.maxBullets = 10;
-        this.bulletCooldown = 5;
-        this.bulletCooldownCounter = 0;
+        this.playerCooldown = 5;
+        this.playerCooldownCounter = 0;
 
         this.lives = 3;
         this.score = 0;
@@ -24,9 +21,13 @@ class Level extends Phaser.Scene {
             ], enemyFast: [
                 [1100, 310],
                 [1100, 410]
-            ]},
-            {enemyStrong: 6, enemyFast: 4}
+            ], shotCooldown: {
+                strong: 60,
+                fast: 30
+            }},
+            {enemyStrong: 6, enemyFast: 4, shotCooldown: {strong: 60, fast: 30}}
         ];
+        this.shotCooldownCounter = {strong: -1, fast: -1}; // cooldown conter for enemy bullets
 
         this.playerSpeed = 10;
         this.bulletSpeed = 12;
@@ -162,11 +163,18 @@ class Level extends Phaser.Scene {
 
     update() {
         let my = this.my;
-        if (this.bulletCooldownCounter > 0) this.bulletCooldownCounter--;
+
+        // decrement cooldown counters
+        if (this.playerCooldownCounter > 0) this.playerCooldownCounter--;
+        if (this.shotCooldownCounter.strong > 0) this.shotCooldownCounter.strong--;
+        if (this.shotCooldownCounter.fast > 0) this.shotCooldownCounter.fast--;
 
         // begin next wave if there are no active enemies
         if (my.sprites.enemyStrongGroup.countActive() + my.sprites.enemyFastGroup.countActive() == 0) {
-            this.initWave(this.wave + 1);
+            this.shotCooldownCounter.strong = -1;
+            this.shotCooldownCounter.fast = -1;
+            this.wave++;
+            this.initWave(this.wave);
         }
 
         // move up
@@ -181,7 +189,7 @@ class Level extends Phaser.Scene {
 
         // fire bullet
         if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
-            if (this.bulletCooldownCounter <= 0) {
+            if (this.playerCooldownCounter <= 0) {
                 let bullet = my.sprites.playerBulletGroup.getFirstDead();
 
                 if (bullet != null) { // derived from https://github.com/JimWhiteheadUCSC/BulletTime
@@ -189,13 +197,45 @@ class Level extends Phaser.Scene {
                     bullet.y = my.sprites.player.y;
                     bullet.active = true;
                     bullet.visible = true;
-                    this.bulletCooldownCounter = this.bulletCooldown;
+                    this.playerCooldownCounter = this.playerCooldown;
                 }
             }
         }
 
         // enemy movement
-        // TODO
+        for (let enemy of my.sprites.enemyStrongGroup.getMatching("active", true)) {
+            // TODO: movement
+        }
+
+        // enemy attacks
+        if (this.shotCooldownCounter.strong == 0) {
+            this.shotCooldownCounter.strong = this.waveConfig[this.wave-1].shotCooldown.strong;
+            let enemyList = my.sprites.enemyStrongGroup.getMatching("active", true);
+            let pick = Math.floor(Math.random() * enemyList.length);
+
+            let bullet = my.sprites.enemyBulletGroup.getFirstDead();
+
+            if (bullet != null) { // derived from https://github.com/JimWhiteheadUCSC/BulletTime
+                bullet.x = enemyList[pick].x + (bullet.displayWidth/2);
+                bullet.y = enemyList[pick].y;
+                bullet.active = true;
+                bullet.visible = true;
+            }
+        }
+        if (this.shotCooldownCounter.fast == 0) {
+            this.shotCooldownCounter.fast = this.waveConfig[this.wave-1].shotCooldown.fast;
+            let enemyList = my.sprites.enemyFastGroup.getMatching("active", true);
+            let pick = Math.floor(Math.random() * enemyList.length);
+
+            let bullet = my.sprites.enemyBulletGroup.getFirstDead();
+
+            if (bullet != null) { // derived from https://github.com/JimWhiteheadUCSC/BulletTime
+                bullet.x = enemyList[pick].x + (bullet.displayWidth/2);
+                bullet.y = enemyList[pick].y;
+                bullet.active = true;
+                bullet.visible = true;
+            }
+        }
 
         // player bullet movement & collision
         for (let bullet of my.sprites.playerBulletGroup.getMatching("active", true)) {
@@ -218,6 +258,24 @@ class Level extends Phaser.Scene {
             }
         }
 
+        // enemy bullet movement & collision
+        for (let bullet of my.sprites.enemyBulletGroup.getMatching("active", true)) {
+            bullet.x -= this.bulletSpeed;
+
+            if (bullet.x < 120) {
+                if (this.collides(bullet, my.sprites.player)) {
+                    bullet.active = false;
+                    bullet.visible = false;
+
+                    this.score -= 2;
+                    if (this.score < 0) {
+                        this.score = 0;
+                    }
+                    this.updateText();
+                }
+            }
+        }
+
         // remove bullets if offscreen
         for (let bullet of my.sprites.playerBulletGroup.getChildren()) {
             if (bullet.x > (game.config.width + (bullet.displayWidth/2))) {
@@ -226,7 +284,7 @@ class Level extends Phaser.Scene {
             }
         }
         for (let bullet of my.sprites.enemyBulletGroup.getChildren()) {
-            if (bullet.x < (bullet.displayWidth/2)) {
+            if (bullet.x < (-bullet.displayWidth/2)) {
                 bullet.active = false;
                 bullet.visible = false;
             }
@@ -275,6 +333,8 @@ class Level extends Phaser.Scene {
             enemy.y = fig.enemyFast[i][1];
         }
 
+        this.shotCooldownCounter.strong = fig.shotCooldown.strong;
+        this.shotCooldownCounter.fast = fig.shotCooldown.fast;
         this.my.text.wave.setText("wave: " + wave);
     }
 

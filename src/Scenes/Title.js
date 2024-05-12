@@ -20,8 +20,9 @@ class Title extends Phaser.Scene {
     create() {
         let txt = this.my.text;
 
-        txt.title = this.add.bitmapText(624, 300, "tinyText", "R game B", 48).setOrigin(0.5);
+        txt.title = this.add.bitmapText(624, 300, "tinyText", "R pixel shmupper B", 48).setOrigin(0.5);
         txt.title = this.add.bitmapText(624, 500, "tinyText", "press spacebar to start", 48).setOrigin(0.5);
+        if (highscore > 0) txt.title = this.add.bitmapText(624, 0, "tinyText", "highscore: " + highscore, 48).setOrigin(0.5, 0);
 
         this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }

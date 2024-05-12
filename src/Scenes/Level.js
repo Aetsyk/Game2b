@@ -26,16 +26,38 @@ class Level extends Phaser.Scene {
                 fast: 30
             }},
             {enemyStrong: [
-                [900, 360],
+                [1000, 260],
+                [1000, 460],
                 [900, 260],
                 [900, 460],
-                [1000, 160],
-                [1000, 560]
+                [800, 260],
+                [800, 460]
             ], enemyFast: [
+                [1100, 210],
                 [1100, 310],
-                [1100, 410]
+                [1100, 410],
+                [1100, 510]
             ], shotCooldown: {
-                strong: 60,
+                strong: 50,
+                fast: 28
+            }},
+            {enemyStrong: [
+                [700, 360],
+                [800, 280],
+                [800, 440],
+                [900, 200],
+                [900, 520],
+            ], enemyFast: [
+                [1000, 360],
+                [1050, 300],
+                [1050, 420],
+                [1100, 240],
+                [1100, 480],
+                [1100, 360],
+                [1150, 180],
+                [1150, 540]
+            ], shotCooldown: {
+                strong: 45,
                 fast: 30
             }}
         ];
@@ -43,7 +65,7 @@ class Level extends Phaser.Scene {
 
         this.playerSpeed = 10;
         this.bulletSpeed = 12;
-        this.enemyVelocity = {strong: 5, fast: 12};
+        this.enemyVelocity = {strong: 5, fast: 12, fastx: -2};
 
         this.pauseCounter = -1;
     }
@@ -53,8 +75,18 @@ class Level extends Phaser.Scene {
     create() {
         let my = this.my;
 
+        //create background
         my.sprites.background = this.add.sprite(game.config.width/2, game.config.height/2, "tiles", "sky.png",);
         my.sprites.background.scale = 80;
+        my.sprites.islands = [];
+        for (let i=0; i<3; i++) {
+            my.sprites.islands.push(this.add.sprite(Math.floor((Math.random() * 1500) + 24), Math.floor((Math.random() * 500) + 110), "tiles", "land1.png"));
+            my.sprites.islands[i].scale = 3;
+        }
+        for (let i=3; i<6; i++) {
+            my.sprites.islands.push(this.add.sprite(Math.floor((Math.random() * 1500) + 24), Math.floor((Math.random() * 500) + 110), "tiles", "land2.png"));
+            my.sprites.islands[i].scale = 3;
+        }
 
         // create UI
         my.text.lives = this.add.bitmapText(0, game.config.height, "tinyText", "RRR", 48).setOrigin(0, 1);
@@ -78,7 +110,7 @@ class Level extends Phaser.Scene {
                     enemy.hp = 2;
                 }
             }
-        })
+        });
         my.sprites.enemyFastGroup = this.add.group({
             defaultKey: "ships",
             defaultFrame: "grayC_small.png",
@@ -90,7 +122,7 @@ class Level extends Phaser.Scene {
                     enemy.hp = 1;
                 }
             }
-        })
+        });
 
         // create enemies
         my.sprites.enemyStrongGroup.createMultiple({
@@ -99,14 +131,14 @@ class Level extends Phaser.Scene {
             key: my.sprites.enemyStrongGroup.defaultKey,
             frame: my.sprites.enemyStrongGroup.defaultFrame,
             repeat: my.sprites.enemyStrongGroup.maxSize-1
-        })
+        });
         my.sprites.enemyFastGroup.createMultiple({
             active: false,
             visible: false,
             key: my.sprites.enemyFastGroup.defaultKey,
             frame: my.sprites.enemyFastGroup.defaultFrame,
             repeat: my.sprites.enemyFastGroup.maxSize-1
-        })
+        });
 
         // create bullet groups for player & enemies
         my.sprites.playerBulletGroup = this.add.group({
@@ -119,7 +151,7 @@ class Level extends Phaser.Scene {
                     bullet.angle = 90;
                 }
             }
-        })
+        });
         my.sprites.enemyBulletGroup = this.add.group({
             defaultKey: "tiles",
             defaultFrame: "bullet.png",
@@ -130,7 +162,7 @@ class Level extends Phaser.Scene {
                     bullet.angle = -90;
                 }
             }
-        })
+        });
 
         // create bullets
         my.sprites.playerBulletGroup.createMultiple({
@@ -139,14 +171,14 @@ class Level extends Phaser.Scene {
             key: my.sprites.playerBulletGroup.defaultKey,
             frame: my.sprites.playerBulletGroup.defaultFrame,
             repeat: my.sprites.playerBulletGroup.maxSize-1
-        })
+        });
         my.sprites.enemyBulletGroup.createMultiple({
             active: false,
             visible: false,
             key: my.sprites.enemyBulletGroup.defaultKey,
             frame: my.sprites.enemyBulletGroup.defaultFrame,
             repeat: my.sprites.enemyBulletGroup.maxSize-1
-        })
+        });
 
         // create animations
         this.anims.create({
@@ -159,7 +191,7 @@ class Level extends Phaser.Scene {
             ],
             frameRate: 12,
             hideOnComplete: true
-        })
+        });
         this.anims.create({
             key: "shortExplosion",
             frames: [
@@ -168,7 +200,7 @@ class Level extends Phaser.Scene {
             ],
             frameRate: 12,
             hideOnComplete: true
-        })
+        });
 
         // create key objects
         this.keyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
@@ -186,8 +218,8 @@ class Level extends Phaser.Scene {
 
         // decrement counters
         if (this.playerCooldownCounter > 0) this.playerCooldownCounter--;
-        if (this.shotCooldownCounter.strong > 0) this.shotCooldownCounter.strong--;
-        if (this.shotCooldownCounter.fast > 0) this.shotCooldownCounter.fast--;
+        if (this.shotCooldownCounter.strong>0 && my.sprites.enemyStrongGroup.countActive()>0) this.shotCooldownCounter.strong--;
+        if (this.shotCooldownCounter.fast>0 && my.sprites.enemyFastGroup.countActive()>0) this.shotCooldownCounter.fast--;
         if (this.pauseCounter > 0) this.pauseCounter--;
 
         // keep game paused between waves
@@ -225,6 +257,7 @@ class Level extends Phaser.Scene {
         if (this.pauseCounter <= 0) my.sprites.enemyStrongGroup.incY(this.enemyVelocity.strong);
         if (this.pauseCounter <= 0) my.sprites.enemyFastGroup.incY(this.enemyVelocity.fast);
 
+        // check for world boundaries
         for (let enemy of my.sprites.enemyStrongGroup.getMatching("active", true)) {
             if (enemy.y <= 96 || enemy.y >= this.game.config.height-96) {
                 this.enemyVelocity.strong *= -1;
@@ -236,6 +269,10 @@ class Level extends Phaser.Scene {
                 this.enemyVelocity.fast *= -1;
                 break;
             }
+            // move fast enemies in when strong enemies are gone
+            if (my.sprites.enemyStrongGroup.countActive() == 0) enemy.x += this.enemyVelocity.fastx;
+            // prevent fast enemies from moving in too close
+            if (enemy.x <= 300 && this.enemyVelocity.fastx < 0) this.enemyVelocity.fastx = 0;
         }
 
         // enemy attacks
@@ -326,7 +363,12 @@ class Level extends Phaser.Scene {
         }
 
         // background movement
-        // TODO
+        for (let island of my.sprites.islands) {
+            island.x -= 1;
+            if (island.x < (-island.displayWidth/2)) {
+                island.x = 1260 + Math.floor(Math.random() * 140)
+            }
+        }
 
         // keep game paused if player is dead & handle game over controls
         if (!my.sprites.player.visible) {
@@ -336,6 +378,7 @@ class Level extends Phaser.Scene {
                 this.restartGame();
             }
             if (Phaser.Input.Keyboard.JustDown(this.keyQ)) {
+                if (this.score > highscore) highscore = this.score;
                 this.lives = 3;
                 this.score = 0;
                 this.wave = 1;
@@ -352,6 +395,7 @@ class Level extends Phaser.Scene {
                 this.restartGame(true);
             }
             if (Phaser.Input.Keyboard.JustDown(this.keyQ)) {
+                if (this.score > highscore) highscore = this.score;
                 this.lives = 3;
                 this.score = 0;
                 this.wave = 1;
@@ -406,6 +450,7 @@ class Level extends Phaser.Scene {
         this.shotCooldownCounter.fast = fig.shotCooldown.fast;
         this.enemyVelocity.strong = 5;
         this.enemyVelocity.fast = 12;
+        this.enemyVelocity.fastx = -2;
         this.my.text.wave.setText("wave: " + wave);
     }
 

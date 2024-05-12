@@ -30,4 +30,5 @@ let config = {
     scene: [Title, Level]
 }
 
+let highscore = 0;
 const game = new Phaser.Game(config);

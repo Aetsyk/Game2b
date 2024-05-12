@@ -6,4 +6,6 @@
     <SubTexture name="explosion3.png" x="112" y="0" width="16" height="16"/>
     <SubTexture name="dust.png" x="128" y="0" width="16" height="16"/>
     <SubTexture name="sky.png" x="96" y="48" width="16" height="16"/>
+    <SubTexture name="land1.png" x="64" y="80" width="16" height="16"/>
+    <SubTexture name="land2.png" x="80" y="80" width="16" height="16"/>
 </TextureAtlas>

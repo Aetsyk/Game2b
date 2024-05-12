@@ -9,7 +9,7 @@ class Level extends Phaser.Scene {
 
         this.lives = 3;
         this.score = 0;
-        this.wave = 0;
+        this.wave = 1;
 
         this.waveConfig = [ // config for each wave; provides x,y coordinates for each ship
             {enemyStrong: [
@@ -25,12 +25,26 @@ class Level extends Phaser.Scene {
                 strong: 60,
                 fast: 30
             }},
-            {enemyStrong: 6, enemyFast: 4, shotCooldown: {strong: 60, fast: 30}}
+            {enemyStrong: [
+                [900, 360],
+                [900, 260],
+                [900, 460],
+                [1000, 160],
+                [1000, 560]
+            ], enemyFast: [
+                [1100, 310],
+                [1100, 410]
+            ], shotCooldown: {
+                strong: 60,
+                fast: 30
+            }}
         ];
         this.shotCooldownCounter = {strong: -1, fast: -1}; // cooldown conter for enemy bullets
 
         this.playerSpeed = 10;
         this.bulletSpeed = 12;
+
+        this.pauseCounter = -1;
     }
 
     preload() {}
@@ -159,37 +173,40 @@ class Level extends Phaser.Scene {
         this.keyW = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W);
         this.keyS = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S);
         this.keySpace = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+        this.keyR = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R);
+        this.keyQ = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.Q);
+
+        // begin initial wave
+        this.initWave(this.wave);
     }
 
     update() {
         let my = this.my;
 
-        // decrement cooldown counters
+        // decrement counters
         if (this.playerCooldownCounter > 0) this.playerCooldownCounter--;
         if (this.shotCooldownCounter.strong > 0) this.shotCooldownCounter.strong--;
         if (this.shotCooldownCounter.fast > 0) this.shotCooldownCounter.fast--;
+        if (this.pauseCounter > 0) this.pauseCounter--;
 
-        // begin next wave if there are no active enemies
-        if (my.sprites.enemyStrongGroup.countActive() + my.sprites.enemyFastGroup.countActive() == 0) {
-            this.shotCooldownCounter.strong = -1;
-            this.shotCooldownCounter.fast = -1;
-            this.wave++;
-            this.initWave(this.wave);
+        // keep game paused between waves
+        if (my.sprites.enemyStrongGroup.countActive() + my.sprites.enemyFastGroup.countActive() == 0 || !my.sprites.player.visible) {
+            this.pauseCounter++;
         }
 
         // move up
         if (this.keyW.isDown) {
-            if (my.sprites.player.y > 96) my.sprites.player.y -= this.playerSpeed;
+            if (my.sprites.player.y > 96 && this.pauseCounter <= 0) my.sprites.player.y -= this.playerSpeed;
         }
 
         // move down
         if (this.keyS.isDown) {
-            if (my.sprites.player.y < game.config.height-96) my.sprites.player.y += this.playerSpeed;
+            if (my.sprites.player.y < game.config.height-96 && this.pauseCounter <= 0) my.sprites.player.y += this.playerSpeed;
         }
 
         // fire bullet
         if (Phaser.Input.Keyboard.JustDown(this.keySpace)) {
-            if (this.playerCooldownCounter <= 0) {
+            if (this.playerCooldownCounter <= 0 && this.pauseCounter <= 0) {
                 let bullet = my.sprites.playerBulletGroup.getFirstDead();
 
                 if (bullet != null) { // derived from https://github.com/JimWhiteheadUCSC/BulletTime
@@ -208,7 +225,7 @@ class Level extends Phaser.Scene {
         }
 
         // enemy attacks
-        if (this.shotCooldownCounter.strong == 0) {
+        if (this.shotCooldownCounter.strong == 0 && this.pauseCounter <= 0) {
             this.shotCooldownCounter.strong = this.waveConfig[this.wave-1].shotCooldown.strong;
             let enemyList = my.sprites.enemyStrongGroup.getMatching("active", true);
             let pick = Math.floor(Math.random() * enemyList.length);
@@ -222,7 +239,7 @@ class Level extends Phaser.Scene {
                 bullet.visible = true;
             }
         }
-        if (this.shotCooldownCounter.fast == 0) {
+        if (this.shotCooldownCounter.fast == 0 && this.pauseCounter <= 0) {
             this.shotCooldownCounter.fast = this.waveConfig[this.wave-1].shotCooldown.fast;
             let enemyList = my.sprites.enemyFastGroup.getMatching("active", true);
             let pick = Math.floor(Math.random() * enemyList.length);
@@ -268,10 +285,14 @@ class Level extends Phaser.Scene {
                     bullet.visible = false;
 
                     this.score -= 2;
+                    this.lives -= 1;
                     if (this.score < 0) {
                         this.score = 0;
                     }
                     this.updateText();
+                    if (this.lives <= 0) {
+                        this.playerDeath(my.sprites.player);
+                    }
                 }
             }
         }
@@ -292,6 +313,38 @@ class Level extends Phaser.Scene {
 
         // background movement
         // TODO
+
+        // keep game paused if player is dead & handle game over controls
+        if (!my.sprites.player.visible) {
+            this.pauseCounter++;
+
+            if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
+                this.restartGame();
+            }
+            if (Phaser.Input.Keyboard.JustDown(this.keyQ)) {
+                this.lives = 3;
+                this.score = 0;
+                this.wave = 1;
+                this.pauseCounter = -1;
+                this.scene.start("titleScreen");
+            }
+        }
+
+        // keep game paused if player has won
+        if (this.wave > this.waveConfig.length) {
+            this.pauseCounter++;
+
+            if (Phaser.Input.Keyboard.JustDown(this.keyR)) {
+                this.restartGame(true);
+            }
+            if (Phaser.Input.Keyboard.JustDown(this.keyQ)) {
+                this.lives = 3;
+                this.score = 0;
+                this.wave = 1;
+                this.pauseCounter = -1;
+                this.scene.start("titleScreen");
+            }
+        }
     }
 
     // center-radius AABB collision check, modified from Jim Whitehead's function in https://github.com/JimWhiteheadUCSC/BulletTime
@@ -320,6 +373,7 @@ class Level extends Phaser.Scene {
 
             enemy.active = true;
             enemy.visible = true;
+            enemy.setTexture(this.my.sprites.enemyStrongGroup.defaultKey, this.my.sprites.enemyStrongGroup.defaultFrame);
             enemy.x = fig.enemyStrong[i][0];
             enemy.y = fig.enemyStrong[i][1];
         }
@@ -329,6 +383,7 @@ class Level extends Phaser.Scene {
 
             enemy.active = true;
             enemy.visible = true;
+            enemy.setTexture(this.my.sprites.enemyFastGroup.defaultKey, this.my.sprites.enemyFastGroup.defaultFrame);
             enemy.x = fig.enemyFast[i][0];
             enemy.y = fig.enemyFast[i][1];
         }
@@ -348,7 +403,152 @@ class Level extends Phaser.Scene {
             enemy.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
                 enemy.active = false;
                 enemy.hp = maxHP;
+
+                // if there are no active enemies, move to next wave
+                if (this.my.sprites.enemyStrongGroup.countActive() + this.my.sprites.enemyFastGroup.countActive() == 0) {
+                    this.wave++;
+
+                    if (this.wave > this.waveConfig.length) { // if no more waves, win game
+                        this.winGame();
+                    } else {
+                        this.initWave(this.wave);
+                    }
+                }
             });
         }
+
+        // set counters to pre-wave state
+        if (this.my.sprites.enemyStrongGroup.countActive() + this.my.sprites.enemyFastGroup.countActive() == 0) {
+            this.shotCooldownCounter.strong = -1;
+            this.shotCooldownCounter.fast = -1;
+            this.pauseCounter = 30;
+
+            // destroy bullets
+            for (let bullet of this.my.sprites.playerBulletGroup.getMatching("active", true)) {
+                bullet.play("shortExplosion");
+                bullet.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                    bullet.active = false;
+                });
+            }
+            for (let bullet of this.my.sprites.enemyBulletGroup.getMatching("active", true)) {
+                bullet.play("shortExplosion");
+                bullet.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                    bullet.active = false;
+                });
+            }
+        }
+    }
+
+    playerDeath(player) {
+        this.pauseCounter = 60;
+        for (let bullet of this.my.sprites.playerBulletGroup.getMatching("active", true)) {
+            bullet.play("shortExplosion");
+            bullet.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                bullet.active = false;
+            });
+        }
+        for (let bullet of this.my.sprites.enemyBulletGroup.getMatching("active", true)) {
+            bullet.play("shortExplosion");
+            bullet.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                bullet.active = false;
+            });
+        }
+        player.play("explosion");
+        player.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+            this.my.text.wave.setText("game over");
+            this.my.text.lives.setText("B r: restart B q: quit B");
+        });
+    }
+
+    restartGame(ngPlus=false) {
+        let my = this.my;
+
+        // reset variables
+        if (!ngPlus) {
+            this.lives = 3;
+            this.score = 0;
+        }
+        this.wave = 1;
+
+        // clear enemies for recreation
+        for (let enemy of my.sprites.enemyStrongGroup.getMatching("active", true)) {
+            enemy.play("shortExplosion");
+            enemy.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                enemy.active = false;
+                enemy.destroy();
+            });
+        }
+        for (let enemy of my.sprites.enemyFastGroup.getMatching("active", true)) {
+            enemy.play("shortExplosion");
+            enemy.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                enemy.active = false;
+                enemy.destroy();
+            });
+        }
+        my.sprites.enemyStrongGroup.clear()
+        my.sprites.enemyFastGroup.clear()
+        my.sprites.playerBulletGroup.clear()
+        my.sprites.enemyBulletGroup.clear()
+
+        // recreate enemies
+        my.sprites.enemyStrongGroup.createMultiple({
+            active: false,
+            visible: false,
+            key: my.sprites.enemyStrongGroup.defaultKey,
+            frame: my.sprites.enemyStrongGroup.defaultFrame,
+            repeat: my.sprites.enemyStrongGroup.maxSize-1
+        })
+        my.sprites.enemyFastGroup.createMultiple({
+            active: false,
+            visible: false,
+            key: my.sprites.enemyFastGroup.defaultKey,
+            frame: my.sprites.enemyFastGroup.defaultFrame,
+            repeat: my.sprites.enemyFastGroup.maxSize-1
+        })
+        // recreate bullets
+        my.sprites.playerBulletGroup.createMultiple({
+            active: false,
+            visible: false,
+            key: my.sprites.playerBulletGroup.defaultKey,
+            frame: my.sprites.playerBulletGroup.defaultFrame,
+            repeat: my.sprites.playerBulletGroup.maxSize-1
+        })
+        my.sprites.enemyBulletGroup.createMultiple({
+            active: false,
+            visible: false,
+            key: my.sprites.enemyBulletGroup.defaultKey,
+            frame: my.sprites.enemyBulletGroup.defaultFrame,
+            repeat: my.sprites.enemyBulletGroup.maxSize-1
+        })
+
+        // set up player
+        my.sprites.player.destroy();
+        my.sprites.player = this.add.sprite(100, game.config.height/2, "ships", "red_small.png");
+        my.sprites.player.scale = 3;
+        my.sprites.player.angle = 90;
+
+        // set up text & enemies
+        this.updateText();
+        this.initWave(1);
+
+        this.pauseCounter = -1; // unpause
+    }
+
+    winGame() {
+        this.pauseCounter = 30;
+        for (let bullet of this.my.sprites.playerBulletGroup.getMatching("active", true)) {
+            bullet.play("shortExplosion");
+            bullet.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                bullet.active = false;
+            });
+        }
+        for (let bullet of this.my.sprites.enemyBulletGroup.getMatching("active", true)) {
+            bullet.play("shortExplosion");
+            bullet.on(Phaser.Animations.Events.ANIMATION_COMPLETE, () => {
+                bullet.active = false;
+            });
+        }
+        this.my.text.wave.setText("you win!");
+        this.my.text.lives.setText("R q: quit R r: new game+ R");
     }
 }
